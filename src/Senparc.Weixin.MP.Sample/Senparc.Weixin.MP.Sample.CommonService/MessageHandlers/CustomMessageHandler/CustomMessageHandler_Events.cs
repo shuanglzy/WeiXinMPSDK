@@ -12,16 +12,25 @@ using System;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
-using System.Web;
 using Senparc.Weixin.MP.Agent;
 using Senparc.Weixin.Context;
 using Senparc.Weixin.Exceptions;
+using Senparc.Weixin.Helpers.Extensions;
 using Senparc.Weixin.HttpUtility;
+using Senparc.Weixin.MP.AdvancedAPIs;
 using Senparc.Weixin.MP.Entities;
 using Senparc.Weixin.MP.Helpers;
 using Senparc.Weixin.MP.MessageHandlers;
 using Senparc.Weixin.MP.Sample.CommonService.Download;
 using Senparc.Weixin.MP.Sample.CommonService.Utilities;
+
+
+#if NET45
+using System.Web;
+#else
+using Microsoft.AspNetCore.Http;
+#endif
+
 
 namespace Senparc.Weixin.MP.Sample.CommonService.CustomMessageHandler
 {
@@ -33,7 +42,14 @@ namespace Senparc.Weixin.MP.Sample.CommonService.CustomMessageHandler
         private string GetWelcomeInfo()
         {
             //获取Senparc.Weixin.MP.dll版本信息
-            var fileVersionInfo = FileVersionInfo.GetVersionInfo(HttpContext.Current.Server.MapPath("~/bin/Senparc.Weixin.MP.dll"));
+#if NET45
+             var fileVersionInfo = FileVersionInfo.GetVersionInfo(HttpContext.Current.Server.MapPath("~/bin/Senparc.Weixin.MP.dll"));
+#else
+            var filePath = Server.GetMapPath("~/bin/Release/netcoreapp1.1/Senparc.Weixin.MP.dll");
+            var fileVersionInfo = FileVersionInfo.GetVersionInfo(filePath);
+#endif
+
+
             var version = string.Format("{0}.{1}.{2}", fileVersionInfo.FileMajorPart, fileVersionInfo.FileMinorPart, fileVersionInfo.FileBuildPart);
             return string.Format(
 @"欢迎关注【Senparc.Weixin.MP 微信公众平台SDK】，当前运行版本：v{0}。
@@ -78,6 +94,8 @@ QQ群：342319110
 【jssdk】    测试JSSDK图文转发接口
 
 格式：【数字#数字】，如2010#0102，调用正则表达式匹配
+
+【订阅】     测试“一次性订阅消息”接口
 ",
                 version);
         }
@@ -91,7 +109,7 @@ QQ群：342319110
 
 感谢您对盛派网络的支持！
 
-© 2016 Senparc", codeRecord.Version, codeRecord.IsWebVersion ? "网页版" : ".chm文档版");
+© {2} Senparc", codeRecord.Version, codeRecord.IsWebVersion ? "网页版" : ".chm文档版", DateTime.Now.Year);
         }
 
         public override IResponseMessageBase OnTextOrEventRequest(RequestMessageText requestMessage)
@@ -168,14 +186,16 @@ QQ群：342319110
                         //上传缩略图
                         var accessToken = Containers.AccessTokenContainer.TryGetAccessToken(appId, appSecret);
                         var uploadResult = AdvancedAPIs.MediaApi.UploadTemporaryMedia(accessToken, UploadMediaFileType.thumb,
-                                                                     Server.GetMapPath("~/Images/Logo.jpg"));
+                                                                     Server.GetMapPath("~/Images/Logo.thumb.jpg"));
+                        //PS：缩略图官方没有特别提示文件大小限制，实际测试哪怕114K也会返回文件过大的错误，因此尽量控制在小一点（当前图片39K）
+                        
                         //设置音乐信息
                         var strongResponseMessage = CreateResponseMessage<ResponseMessageMusic>();
                         reponseMessage = strongResponseMessage;
                         strongResponseMessage.Music.Title = "天籁之音";
                         strongResponseMessage.Music.Description = "真的是天籁之音";
-                        strongResponseMessage.Music.MusicUrl = "http://sdk.weixin.senparc.com/Content/music1.mp3";
-                        strongResponseMessage.Music.HQMusicUrl = "http://sdk.weixin.senparc.com/Content/music1.mp3";
+                        strongResponseMessage.Music.MusicUrl = "https://sdk.weixin.senparc.com/Content/music1.mp3";
+                        strongResponseMessage.Music.HQMusicUrl = "https://sdk.weixin.senparc.com/Content/music1.mp3";
                         strongResponseMessage.Music.ThumbMediaId = uploadResult.thumb_media_id;
                     }
                     break;
@@ -280,6 +300,21 @@ QQ群：342319110
                         var strongResponseMessage = CreateResponseMessage<ResponseMessageText>();
                         reponseMessage = strongResponseMessage;
                         strongResponseMessage.Content = "您点击了个性化菜单按钮，您的微信性别设置为：女。";
+                    }
+                    break;
+                case "GetNewMediaId"://获取新的MediaId
+                    {
+                        var strongResponseMessage = CreateResponseMessage<ResponseMessageText>();
+                        try
+                        {
+                            var result = AdvancedAPIs.MediaApi.UploadForeverMedia(appId, Server.GetMapPath("~/Images/logo.jpg"));
+                            strongResponseMessage.Content = result.media_id;
+                        }
+                        catch (Exception e)
+                        {
+                            strongResponseMessage.Content = "发生错误：" + e.Message;
+                            WeixinTrace.SendCustomLog("调用UploadForeverMedia()接口发生异常", e.Message);
+                        }
                     }
                     break;
                 default:
@@ -516,6 +551,7 @@ QQ群：342319110
             {
                 case "success":
                     //发送成功
+                   
                     break;
                 case "failed:user block":
                     //送达由于用户拒收（用户设置拒绝接收公众号消息）而失败
@@ -529,10 +565,33 @@ QQ群：342319110
 
             //注意：此方法内不能再发送模板消息，否则会造成无限循环！
 
+            try
+            {
+                var msg = @"已向您发送模板消息
+状态：{0}
+MsgId：{1}
+（这是一条来自MessageHandler的客服消息）".FormatWith(requestMessage.Status, requestMessage.MsgID);
+                CustomApi.SendText(appId, WeixinOpenId, msg);//发送客服消息
+            }
+            catch (Exception e)
+            {
+                Senparc.Weixin.WeixinTrace.SendCustomLog("模板消息发送失败", e.ToString());
+            }
+
+
             //无需回复文字内容
             //return requestMessage
             //    .CreateResponseMessage<ResponseMessageNoResponse>();
             return null;
         }
+
+        #region 微信认证事件推送
+
+        public override IResponseMessageBase OnEvent_QualificationVerifySuccess(RequestMessageEvent_QualificationVerifySuccess requestMessage)
+        {
+            return new SuccessResponseMessage();
+        }
+
+        #endregion
     }
 }

@@ -1,5 +1,5 @@
 ﻿/*----------------------------------------------------------------
-    Copyright (C) 2016 Senparc
+    Copyright (C) 2017 Senparc
     
     文件名：UploadResultJson.cs
     文件功能描述：上传媒体文件返回结果
@@ -15,6 +15,10 @@
 
     修改标识：Senparc - 20160720
     修改描述：增加其接口的异步方法
+
+    修改标识：Senparc - 20160720
+    修改描述：增加其接口的异步方法
+
 ----------------------------------------------------------------*/
 
 /*
@@ -23,6 +27,7 @@
 
 using System;
 using System.Threading.Tasks;
+using Senparc.Weixin.CommonAPIs;
 using Senparc.Weixin.HttpUtility;
 using Senparc.Weixin.Work.AdvancedAPIs.OAuth2;
 
@@ -31,7 +36,7 @@ namespace Senparc.Weixin.Work.AdvancedAPIs
 
     public static class OAuth2Api
     {
-        #region 同步请求
+        #region 同步方法
         
         
         /*此接口不提供异步方法*/
@@ -63,7 +68,7 @@ namespace Senparc.Weixin.Work.AdvancedAPIs
         [Obsolete("请使用新方法GetUserId(string accessToken, string code)")]
         public static GetUserInfoResult GetUserId(string accessToken, string code, string agentId)
         {
-            var url = string.Format("https://qyapi.weixin.qq.com/cgi-bin/user/getuserinfo?access_token={0}&code={1}&agentid={2}", accessToken.AsUrlData(), code.AsUrlData(), agentId.AsUrlData());
+            var url = string.Format(Config.ApiWorkHost + "/cgi-bin/user/getuserinfo?access_token={0}&code={1}&agentid={2}", accessToken.AsUrlData(), code.AsUrlData(), agentId.AsUrlData());
 
             return Get.GetJson<GetUserInfoResult>(url);
         }
@@ -77,14 +82,35 @@ namespace Senparc.Weixin.Work.AdvancedAPIs
         /// <returns></returns>
         public static GetUserInfoResult GetUserId(string accessToken, string code)
         {
-            var url = string.Format("https://qyapi.weixin.qq.com/cgi-bin/user/getuserinfo?access_token={0}&code={1}", accessToken.AsUrlData(), code.AsUrlData());
+            var url = string.Format(Config.ApiWorkHost + "/cgi-bin/user/getuserinfo?access_token={0}&code={1}", accessToken.AsUrlData(), code.AsUrlData());
 
             return Get.GetJson<GetUserInfoResult>(url);
         }
+
+        /// <summary>
+        /// 使用user_ticket获取成员详情
+        /// 官方文档：http://work.weixin.qq.com/api/doc#10028
+        /// </summary>
+        /// <param name="accessToken"></param>
+        /// <param name="userTicket">成员票据</param>
+        /// <returns></returns>
+        public static GetUserDetailResult GetUserDetail(string accessToken,string userTicket)
+        {
+            var urlFormat = Config.ApiWorkHost + "/cgi-bin/user/getuserdetail?access_token={0}";
+
+            var data = new
+            {
+                user_ticket = userTicket
+            };
+
+            return CommonJsonSend.Send<GetUserDetailResult>(accessToken, urlFormat, data);
+        }
+
         #endregion
 
-        #region 异步请求
-         /// <summary>
+#if !NET35 && !NET40
+        #region 异步方法
+        /// <summary>
         ///【异步方法】 获取成员信息
         /// </summary>
         /// <param name="accessToken">调用接口凭证</param>
@@ -94,7 +120,7 @@ namespace Senparc.Weixin.Work.AdvancedAPIs
         [Obsolete("请使用新方法GetUserId(string accessToken, string code)")]
         public static async Task<GetUserInfoResult> GetUserIdAsync(string accessToken, string code, string agentId)
         {
-            var url = string.Format("https://qyapi.weixin.qq.com/cgi-bin/user/getuserinfo?access_token={0}&code={1}&agentid={2}", accessToken.AsUrlData(), code.AsUrlData(), agentId.AsUrlData());
+            var url = string.Format(Config.ApiWorkHost + "/cgi-bin/user/getuserinfo?access_token={0}&code={1}&agentid={2}", accessToken.AsUrlData(), code.AsUrlData(), agentId.AsUrlData());
 
             return await Get.GetJsonAsync<GetUserInfoResult>(url);
         }
@@ -108,10 +134,30 @@ namespace Senparc.Weixin.Work.AdvancedAPIs
         /// <returns></returns>
         public static async Task<GetUserInfoResult> GetUserIdAsync(string accessToken, string code)
         {
-            var url = string.Format("https://qyapi.weixin.qq.com/cgi-bin/user/getuserinfo?access_token={0}&code={1}", accessToken.AsUrlData(), code.AsUrlData());
+            var url = string.Format(Config.ApiWorkHost + "/cgi-bin/user/getuserinfo?access_token={0}&code={1}", accessToken.AsUrlData(), code.AsUrlData());
 
             return await Get.GetJsonAsync<GetUserInfoResult>(url);
         }
+
+        /// <summary>
+        /// 【异步请求】使用user_ticket获取成员详情
+        /// 官方文档：http://work.weixin.qq.com/api/doc#10028
+        /// </summary>
+        /// <param name="accessToken"></param>
+        /// <param name="userTicket">成员票据</param>
+        /// <returns></returns>
+        public static async Task<GetUserDetailResult> GetUserDetailAsync(string accessToken, string userTicket)
+        {
+            var urlFormat = Config.ApiWorkHost + "/cgi-bin/user/getuserdetail?access_token={0}";
+
+            var data = new
+            {
+                user_ticket = userTicket
+            };
+
+            return await CommonJsonSend.SendAsync<GetUserDetailResult>(accessToken, urlFormat, data);
+        }
         #endregion
+#endif
     }
 }

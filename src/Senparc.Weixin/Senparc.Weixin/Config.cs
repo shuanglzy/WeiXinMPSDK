@@ -32,8 +32,13 @@ Detail: https://github.com/JeffreySu/WeiXinMPSDK/blob/master/license.md
 
     修改标识：Senparc - 20160813
     修改描述：v4.7.7 添加DefaultCacheNamespace
+
+    修改标识：Senparc - 20171127
+    修改描述：v4.18.5 添加Config.ApiMpHost属性，可以设置API域名
+
 ----------------------------------------------------------------*/
 
+using Senparc.Weixin.Entities;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -87,5 +92,49 @@ namespace Senparc.Weixin
         /// 默认缓存键的第一级命名空间，默认值：DefaultCache
         /// </summary>
         public static string DefaultCacheNamespace = "DefaultCache";//TODO:需要考虑分布式的情况，后期需要储存在缓存中,或进行全局配置
+
+#if !NET45
+        /// <summary>
+        /// 默认微信配置
+        /// </summary>
+        public static SenparcWeixinSetting DefaultSenparcWeixinSetting { get; set; }
+#endif
+
+
+        /// <summary>
+        /// 微信支付使用沙箱模式
+        /// </summary>
+        public static bool UseSandBoxPay { get; set; }
+
+        /// <summary>
+        /// 网站根目录绝对路径
+        /// </summary>
+        public static string RootDictionaryPath { get; set; }
+
+        /// <summary>
+        /// 公众号（小程序）、开放平台 API 的服务器地址（默认为：https://api.weixin.qq.com）
+        /// </summary>
+        private static string _apiMpHost = "https://api.weixin.qq.com";
+        /// <summary>
+        /// 公众号（小程序）、开放平台 API 的服务器地址（默认为：https://api.weixin.qq.com）
+        /// </summary>
+        public static string ApiMpHost
+        {
+            get { return _apiMpHost; }
+            set { _apiMpHost = value; }
+        }
+
+        /// <summary>
+        /// 企业微信API的服务器地址（默认为：https://qyapi.weixin.qq.com）
+        /// </summary>
+        private static string _apiWorkHost = "https://qyapi.weixin.qq.com";
+        /// <summary>
+        /// 企业微信API的服务器地址（默认为：https://qyapi.weixin.qq.com）
+        /// </summary>
+        public static string ApiWorkHost
+        {
+            get { return _apiWorkHost; }
+            set { _apiWorkHost = value; }
+        }
     }
 }
